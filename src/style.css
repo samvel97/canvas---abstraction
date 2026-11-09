@@ -13,4 +13,21 @@ body {
 
 canvas {
   display: block;
+  touch-action: none;
+}
+
+.hud {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 16px;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: rgb(255 255 255 / 75%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.hint {
+  color: rgb(255 255 255 / 45%);
 }

@@ -23,6 +23,10 @@ const options: FieldOptions = {
 
 /** Cap frame delta so a backgrounded tab does not jump on return. */
 const MAX_FRAME_DELTA = 0.1;
+/** Max phase shift (radians) applied when the pointer is at a viewport edge. */
+const POINTER_PHASE = 1.5;
+/** How quickly the field follows the pointer (higher = snappier). */
+const POINTER_EASING = 4;
 
 /**
  * Flow field: a grid of lines whose angles follow
@@ -73,7 +77,30 @@ class FlowField {
     return gradient;
   }
 
+  paused = false;
+  /** Pointer position normalized to -1..1 from the viewport center. */
+  #pointerTarget = { x: 0, y: 0 };
+  /** Eased pointer position actually used for rendering. */
+  #pointer = { x: 0, y: 0 };
+
+  setPointer(clientX: number, clientY: number) {
+    this.#pointerTarget = {
+      x: (clientX / this.#width) * 2 - 1,
+      y: (clientY / this.#height) * 2 - 1,
+    };
+  }
+
+  togglePause() {
+    this.paused = !this.paused;
+  }
+
   #update(deltaSeconds: number) {
+    // Ease toward the pointer (frame-rate independent exponential smoothing).
+    const ease = 1 - Math.exp(-POINTER_EASING * deltaSeconds);
+    this.#pointer.x += (this.#pointerTarget.x - this.#pointer.x) * ease;
+    this.#pointer.y += (this.#pointerTarget.y - this.#pointer.y) * ease;
+
+    if (this.paused) return;
     const { speed, maxRadians } = this.#options;
     this.#radians += this.#direction * speed * deltaSeconds;
     if (this.#radians >= maxRadians) {
@@ -89,6 +116,8 @@ class FlowField {
     const { cellSize, lineLength } = this.#options;
     const offsetX = this.#width / 4;
     const offsetY = this.#height / 4;
+    const phaseX = this.#pointer.x * POINTER_PHASE;
+    const phaseY = this.#pointer.y * POINTER_PHASE;
     const ctx = this.#ctx;
 
     ctx.clearRect(0, 0, this.#width, this.#height);
@@ -98,7 +127,7 @@ class FlowField {
     ctx.beginPath();
     for (let y = 0; y < this.#height / 2; y += cellSize) {
       for (let x = 0; x < this.#width / 2; x += cellSize) {
-        const angle = (Math.cos(x * 0.01) + Math.sin(y * 0.01)) * this.#radians;
+        const angle = (Math.cos(x * 0.01 + phaseX) + Math.sin(y * 0.01 + phaseY)) * this.#radians;
         ctx.moveTo(x + offsetX, y + offsetY);
         ctx.lineTo(x + Math.cos(angle) * lineLength + offsetX, y + Math.sin(angle) * lineLength + offsetY);
       }
@@ -120,5 +149,24 @@ const ctx = canvas?.getContext("2d");
 if (!canvas || !ctx) throw new Error("Canvas 2D context is not available");
 
 const field = new FlowField(canvas, ctx, options);
+const status = document.querySelector<HTMLElement>("#status");
+const updateStatus = () => {
+  if (status) status.textContent = field.paused ? "Paused" : "";
+};
+
+// Respect the OS "reduce motion" setting: start paused (the pointer still works).
+if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  field.paused = true;
+}
+
 window.addEventListener("resize", () => field.resize());
+window.addEventListener("pointermove", (event) => field.setPointer(event.clientX, event.clientY));
+window.addEventListener("keydown", (event) => {
+  if (event.key !== " ") return;
+  event.preventDefault();
+  field.togglePause();
+  updateStatus();
+});
+
+updateStatus();
 requestAnimationFrame(field.frame);

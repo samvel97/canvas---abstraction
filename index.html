@@ -3,10 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Animated trigonometric flow field drawn with the HTML Canvas 2D API" />
     <title>Flow Field: Canvas 2D</title>
   </head>
   <body>
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" role="img" aria-label="Animated abstract pattern of thousands of thin gradient-colored lines"></canvas>
+    <div class="hud">
+      <span id="status" aria-live="polite"></span>
+      <span class="hint">Move the pointer to bend the field · Space: pause</span>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
